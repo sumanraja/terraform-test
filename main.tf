@@ -1,7 +1,7 @@
 provider "aws" {
   region     = "us-east-1"
-  access_key = "XXXXXXXXX"
-  secret_key = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+  access_key = "XXXXXXXXXX"
+  secret_key = "XXXXXXXXXXXXXXXXXXXXXXXXX"
 }
 
 resource "aws_vpc" "VPC100" {
@@ -70,6 +70,20 @@ resource "aws_route_table" "rt" {
   }
 }
 
+resource "aws_route_table" "privatert" {
+  vpc_id = "${aws_vpc.VPC100.id}"
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    nat_gateway_id = "${aws_nat_gateway.ngw.id}"
+  }
+
+  tags = {
+    Name = "PrivateRoutingTable"
+  }
+}
+
+
 
 ################ Route table attach ############
 
@@ -79,6 +93,11 @@ resource "aws_route_table_association" "a" {
   route_table_id = "${aws_route_table.rt.id}"
 }
 
+##############   NAT Gateway association for Private network  #######
+resource "aws_route_table_association" "public" {
+  subnet_id      = "${aws_subnet.Private.id}"
+  route_table_id = "${aws_route_table.privatert.id}"
+}
 ##############		Security Group	####################
 resource "aws_security_group" "windowsVM" {
   name        = "windowsVM"
@@ -100,6 +119,28 @@ resource "aws_security_group" "windowsVM" {
     to_port         = 0
     protocol        = "-1"
     cidr_blocks     = ["0.0.0.0/0"]
+  }
+}
+
+
+################  EIP 			###############
+
+
+resource "aws_eip" "NAT-EIP" {
+  vpc      = true
+  tags = {
+  Name = "NAT-EIP"
+  }
+}
+
+#################   NAT Gateway    ###############
+
+resource "aws_nat_gateway" "ngw" {
+  allocation_id = "${aws_eip.NAT-EIP.id}"
+  subnet_id     = "${aws_subnet.Public.id}"
+
+  tags = {
+    Name = "NATgwVPC100"
   }
 }
 
